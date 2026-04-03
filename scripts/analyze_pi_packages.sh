@@ -1,8 +1,9 @@
 #!/bin/bash
 
-# Pi.dev 包分析工具（優化版）
+# Pi.dev 包分析工具（改進版）
+# - 每次分析 3 個新包
 # - 避免重複分析已看過的包
-# - 每次運行只生成一份報告
+# - 生成 1 份統一報告
 # - 文件名格式: yyyymmddHHmm.md
 
 set -e
@@ -31,7 +32,7 @@ log() {
 }
 
 echo "╔════════════════════════════════════════════════════════════════╗"
-echo "║          📦 Pi.dev 包分析 - 去重版本                          ║"
+echo "║      📦 Pi.dev 包分析 - 每次分析 3 個新包                     ║"
 echo "╚════════════════════════════════════════════════════════════════╝"
 echo ""
 
@@ -61,10 +62,10 @@ declare -A PACKAGE_POOL=(
 )
 
 # ============================================================================
-# 選擇包的邏輯
+# 選擇 3 個新包
 # ============================================================================
 
-select_packages() {
+select_three_packages() {
     # 獲取已分析的包列表
     local analyzed_packages=$(cat "$HISTORY_FILE" 2>/dev/null || echo "")
     
@@ -76,31 +77,39 @@ select_packages() {
         fi
     done
     
-    log "📊 已分析包數: $(echo "$analyzed_packages" | grep -c . || echo 0)"
+    local analyzed_count=$(echo "$analyzed_packages" | grep -c . || echo 0)
+    log "📊 已分析包數: $analyzed_count"
     log "📊 未分析包數: ${#unanalyzed[@]}"
     
-    # 如果沒有未分析的包，重置歷史
-    if [ ${#unanalyzed[@]} -eq 0 ]; then
-        log "⚠️ 所有包都已分析，重置分析歷史..."
+    # 如果未分析的包少於 3 個，重置歷史
+    if [ ${#unanalyzed[@]} -lt 3 ]; then
+        log "⚠️ 未分析包數不足 3 個，重置分析歷史..."
         > "$HISTORY_FILE"
         unanalyzed=("${!PACKAGE_POOL[@]}")
     fi
     
-    # 隨機選擇一個未分析的包
-    local random_idx=$((RANDOM % ${#unanalyzed[@]}))
-    SELECTED_PKG="${unanalyzed[$random_idx]}"
+    # 隨機選擇 3 個未分析的包
+    SELECTED_PKGS=()
+    for i in {1..3}; do
+        local random_idx=$((RANDOM % ${#unanalyzed[@]}))
+        local selected_pkg="${unanalyzed[$random_idx]}"
+        SELECTED_PKGS+=("$selected_pkg")
+        
+        # 從未分析列表中移除此包
+        unanalyzed=("${unanalyzed[@]:0:$random_idx}" "${unanalyzed[@]:$((random_idx+1))}")
+        
+        # 記錄到歷史
+        echo "$selected_pkg" >> "$HISTORY_FILE"
+    done
     
-    # 將此包添加到歷史
-    echo "$SELECTED_PKG" >> "$HISTORY_FILE"
-    
-    log "✅ 選中包: $SELECTED_PKG"
+    log "✅ 選中 3 個包: ${SELECTED_PKGS[0]}, ${SELECTED_PKGS[1]}, ${SELECTED_PKGS[2]}"
 }
 
 # ============================================================================
-# 分析選中的包
+# 分析單個包
 # ============================================================================
 
-analyze_selected_package() {
+analyze_package() {
     local pkg_name="$1"
     local pkg_info="${PACKAGE_POOL[$pkg_name]}"
     
@@ -147,20 +156,23 @@ analyze_selected_package() {
     esac
     
     # 返回分析結果
-    echo "$score|$author|$desc|$recommendation|$conflict"
+    echo "$pkg_name|$score|$author|$desc|$recommendation|$conflict"
 }
 
 # ============================================================================
 # 主流程
 # ============================================================================
 
-log "📝 步驟 1: 選擇待分析的包..."
-select_packages
+log "📝 步驟 1: 選擇 3 個待分析的包..."
+select_three_packages
 
-log "📝 步驟 2: 分析選中的包..."
-ANALYSIS=$(analyze_selected_package "$SELECTED_PKG")
+log "📝 步驟 2: 分析選中的 3 個包..."
 
-IFS='|' read -r SCORE AUTHOR DESC RECOMMENDATION CONFLICT <<< "$ANALYSIS"
+declare -a ANALYSES
+for pkg in "${SELECTED_PKGS[@]}"; do
+    ANALYSIS=$(analyze_package "$pkg")
+    ANALYSES+=("$ANALYSIS")
+done
 
 log "✅ 分析完成"
 
@@ -177,43 +189,61 @@ REPORT_FILE="$REPORTS_DIR/${TIMESTAMP}.md"
     echo ""
     echo "**日期**: $DATETIME_PRETTY"
     echo "**格式**: yyyymmddHHmm (${TIMESTAMP})"
+    echo "**本次分析**: 3 個新包"
     echo ""
     echo "---"
     echo ""
     echo "## 分析的包"
     echo ""
-    echo "### $SELECTED_PKG"
-    echo ""
-    echo "**作者**: $AUTHOR"
-    echo "**採用評分**: $SCORE/100"
-    echo "**說明**: $DESC"
-    echo ""
+    
+    # 分析 3 個包並顯示
+    for i in {0..2}; do
+        ANALYSIS="${ANALYSES[$i]}"
+        IFS='|' read -r pkg_name score author desc recommendation conflict <<< "$ANALYSIS"
+        
+        echo "### $((i+1)). $pkg_name"
+        echo ""
+        echo "**作者**: $author"
+        echo "**採用評分**: $score/100"
+        echo "**說明**: $desc"
+        echo ""
+        
+        # 優先級判斷
+        if [ "$score" -gt 80 ]; then
+            priority="🔴 高優先級"
+        elif [ "$score" -gt 50 ]; then
+            priority="🟡 中優先級"
+        else
+            priority="🟢 低優先級"
+        fi
+        
+        echo "**優先級**: $priority"
+        echo "**建議**: $recommendation"
+        echo "**潛在衝突**: $conflict"
+        echo ""
+    done
+    
     echo "---"
     echo ""
-    echo "## 應用性分析"
+    echo "## 對比分析"
     echo ""
-    echo "**評分**: $SCORE/100"
-    echo ""
+    echo "| 項目 | 包 1 | 包 2 | 包 3 |"
+    echo "|------|------|------|------|"
     
-    # 根據評分判斷優先級
-    if [ "$SCORE" -gt 80 ]; then
-        echo "**優先級**: 🔴 高優先級"
-        echo ""
-        echo "建議立即評估集成該包。"
-    elif [ "$SCORE" -gt 50 ]; then
-        echo "**優先級**: 🟡 中優先級"
-        echo ""
-        echo "建議未來進一步評估。"
-    else
-        echo "**優先級**: 🟢 低優先級"
-        echo ""
-        echo "暫不建議採用。"
-    fi
+    # 解析評分
+    IFS='|' read -r pkg1 score1 _ _ _ _ <<< "${ANALYSES[0]}"
+    IFS='|' read -r pkg2 score2 _ _ _ _ <<< "${ANALYSES[1]}"
+    IFS='|' read -r pkg3 score3 _ _ _ _ <<< "${ANALYSES[2]}"
     
-    echo ""
-    echo "**建議**: $RECOMMENDATION"
-    echo ""
-    echo "**潛在衝突**: $CONFLICT"
+    echo "| **包名** | $pkg1 | $pkg2 | $pkg3 |"
+    echo "| **評分** | **$score1/100** | **$score2/100** | **$score3/100** |"
+    
+    # 優先級表
+    priority1=$([ "$score1" -gt 80 ] && echo "🔴 高" || ([ "$score1" -gt 50 ] && echo "🟡 中" || echo "🟢 低"))
+    priority2=$([ "$score2" -gt 80 ] && echo "🔴 高" || ([ "$score2" -gt 50 ] && echo "🟡 中" || echo "🟢 低"))
+    priority3=$([ "$score3" -gt 80 ] && echo "🔴 高" || ([ "$score3" -gt 50 ] && echo "🟡 中" || echo "🟢 低"))
+    
+    echo "| **優先級** | $priority1 | $priority2 | $priority3 |"
     echo ""
     echo "---"
     echo ""
@@ -240,7 +270,7 @@ echo ""
 log "📤 準備推送至 GitHub..."
 
 GIT_LOGS_DIR="/tmp/auto-growth-logs-repo-$$"
-REPO_NAME="auto-growth-logs"
+REPO_NAME="auto-growth"
 
 rm -rf "$GIT_LOGS_DIR" 2>/dev/null || true
 mkdir -p "$GIT_LOGS_DIR"
@@ -274,12 +304,12 @@ cat > README.md << 'READMEEOF'
 ## 📊 報告格式
 
 - **yyyymmddHHmm.md** - 每次分析生成一份報告
-- 包含: 包信息、評分、建議、潛在衝突
+- 包含: 3 個新包的詳細分析、對比表、評分、建議
 
 ## 🔄 分析機制
 
+- 每次分析 3 個新包
 - 避免重複分析已看過的包
-- 每次運行選擇一個新包進行深度分析
 - 完整歷史記錄追蹤
 
 ---
@@ -292,8 +322,8 @@ git commit -m "Package Analysis: ${TIMESTAMP}" --allow-empty 2>/dev/null || true
 
 # 配置遠程和推送
 if [ -f ~/.git-credentials ]; then
-    GITHUB_USERNAME=$(cat ~/.git-credentials | grep -oP '(?<=https://)[^:]+' | head -1)
-    GITHUB_TOKEN=$(cat ~/.git-credentials | grep -oP '(?<=:)[^@]+(?=@github)' | head -1)
+    GITHUB_USERNAME=$(cat ~/.git-credentials | grep -oP '(?<=https://)[^:]+')
+    GITHUB_TOKEN=$(cat ~/.git-credentials | grep -oP '(?<=:)[^@]+(?=@github)')
     
     if [ -n "$GITHUB_USERNAME" ] && [ -n "$GITHUB_TOKEN" ]; then
         git remote remove origin 2>/dev/null || true
@@ -310,13 +340,13 @@ rm -rf "$ANALYSIS_DIR" "$GIT_LOGS_DIR"
 
 echo ""
 echo "╔════════════════════════════════════════════════════════════════╗"
-echo "║              ✅ 包分析完成                                    ║"
+echo "║              ✅ 包分析完成（3 個新包）                        ║"
 echo "╚════════════════════════════════════════════════════════════════╝"
 echo ""
 echo "📊 報告:"
 echo "  $REPORT_FILE"
 echo ""
 echo "📤 GitHub:"
-echo "  https://github.com/2324139/auto-growth-logs"
+echo "  https://github.com/2324139/auto-growth"
 echo ""
 log "🎊 包分析流程完成！"
