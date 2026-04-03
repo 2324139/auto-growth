@@ -4,9 +4,9 @@
 
 ## 🎯 核心功能
 
-### Pi.dev 每日包分析（優化版）
+### Pi.dev 每日包分析（優化版 v2）
 
-每天自動分析 Pi.dev/packages 中的**一個新包**：
+每次自動分析 **3 個新包**：
 
 ✨ **智能去重**
 - 追蹤已分析的包，避免重複
@@ -21,7 +21,7 @@
 📄 **統一報告**
 - 每次運行生成 **1 份報告**
 - 文件名格式：`yyyymmddHHmm.md`
-- 自動推送 GitHub
+- 包含 3 個包的詳細分析 + 對比表
 
 ## 📋 快速開始
 
@@ -38,6 +38,23 @@ cd /home/container/projects/auto-growth
 ./scripts/run_daily_analysis.sh
 ```
 
+## 📊 報告示例
+
+**第一次運行分析**:
+- markdown-renderer (70/100)
+- api-gateway (40/100)
+- git-automation (75/100)
+
+**第二次運行分析**:
+- document-generator (75/100)
+- web-search-advanced (95/100)
+- data-pipeline-processor (80/100)
+
+每個報告包含：
+1. 3 個包的詳細信息
+2. 採用評分和優先級
+3. 對比分析表
+
 ## 📂 項目結構
 
 ```
@@ -46,9 +63,11 @@ auto-growth/
 │   ├── analyze_pi_packages.sh      # 核心分析引擎
 │   └── run_daily_analysis.sh       # 每日運行器
 ├── reports/
-│   └── yyyymmddHHmm.md             # 分析報告
+│   ├── 202604032010.md             # 第一次分析
+│   ├── 202604032012.md             # 第二次分析
+│   └── ...
 ├── logs/
-│   └── package_analysis.log        # 分析日誌
+│   └── package_analysis.log
 ├── docs/
 │   ├── PROGRESS.md
 │   └── ARCHITECTURE.md
@@ -57,24 +76,25 @@ auto-growth/
 
 ## 🔄 工作流程
 
-1. **選擇包**
-   - 掃描已分析的包
-   - 從未分析的包中隨機選擇
+```
+1️⃣ 選擇 3 個新包
+   └─ 從未分析的包中隨機選擇
    
-2. **分析包**
-   - 評估應用場景
-   - 檢查與現有功能衝突
-   - 生成採用評分
+2️⃣ 分析每個包
+   ├─ 評估應用場景
+   ├─ 檢查與現有功能衝突
+   ├─ 生成評分
+   └─ 給出建議
+   
+3️⃣ 生成統一報告
+   ├─ 3 個包的詳細信息
+   └─ 對比分析表
+   
+4️⃣ 推送至 GitHub
+   └─ 自動提交和推送
+```
 
-3. **生成報告**
-   - 統一的 Markdown 格式
-   - 清晰的結論和建議
-
-4. **推送 GitHub**
-   - 自動提交和推送
-   - 完整的歷史記錄
-
-## 📊 評分標準
+## 📈 評分標準
 
 | 評分範圍 | 優先級 | 建議 |
 |----------|--------|------|
@@ -85,25 +105,25 @@ auto-growth/
 ## 🌐 GitHub 備份
 
 所有報告自動推送至：
-https://github.com/2324139/auto-growth-logs
+https://github.com/2324139/auto-growth
 
 ## 📚 查看報告
 
 ### 本地查看
 ```bash
 ls -lh reports/
-cat reports/202604031953.md
+cat reports/202604032010.md
 ```
 
 ### GitHub 查看
 ```
-https://github.com/2324139/auto-growth-logs/tree/main/reports
+https://github.com/2324139/auto-growth/tree/main/reports
 ```
 
 ## ✨ 特色
 
+✅ **每次 3 個包** - 提高分析效率  
 ✅ **智能去重** - 不重複分析已看過的包  
-✅ **高效分析** - 每天只分析 1 個包  
 ✅ **統一報告** - 每次運行生成 1 份  
 ✅ **完整歷史** - 所有分析都有記錄  
 ✅ **自動推送** - 實時備份至 GitHub  
@@ -127,73 +147,61 @@ rm /home/container/projects/auto-growth/.package_analysis_history
 
 這會重新開始分析所有包。
 
-## 📝 文件格式說明
+## 📊 包池狀態
 
-### 報告文件名
+| 包名 | 評分 | 狀態 |
+|------|------|------|
+| web-search-advanced | 95 | ✓ 已分析 |
+| cache-layer | 85 | ⏳ 待分析 |
+| security-scanner | 65 | ⏳ 待分析 |
+| data-pipeline-processor | 80 | ✓ 已分析 |
+| markdown-renderer | 70 | ✓ 已分析 |
+| document-generator | 75 | ✓ 已分析 |
+| git-automation | 75 | ✓ 已分析 |
+| logging-aggregator | 60 | ⏳ 待分析 |
+| metrics-exporter | 70 | ⏳ 待分析 |
+| api-gateway | 40 | ✓ 已分析 |
 
-`yyyymmddHHmm.md`
+進度: ██████░░░░ 70%
 
-- `yyyy` - 年份（4 位）
-- `mm` - 月份（2 位）
-- `dd` - 日期（2 位）
-- `HH` - 小時（24 小時制）
-- `mm` - 分鐘（2 位）
+## 📞 常用命令
 
-例：`202604031953.md` 表示 2026 年 4 月 3 日 19:53 的分析報告
-
-### 報告內容
-
-```markdown
-# 📦 Pi.dev 包分析報告
-
-**日期**: 2026-04-03 19:53:18
-**格式**: yyyymmddHHmm (202604031953)
-
-## 分析的包
-
-### [包名]
-
-**作者**: [作者]
-**採用評分**: [評分]/100
-**說明**: [功能描述]
-
-## 應用性分析
-
-**評分**: [評分]/100
-**優先級**: [優先級]
-**建議**: [建議]
-**潛在衝突**: [衝突分析]
-
-## 系統狀態
-
-- 已分析包數: [數量]
-- 包池大小: [總數]
-- 分析時間: [時間戳]
-```
-
-## 🚀 定時執行
-
-### 使用 Cron（Linux/Mac）
-
+【執行分析】
 ```bash
-# 每天 8:00 AM 執行
-0 8 * * * cd /home/container/projects/auto-growth && ./scripts/run_daily_analysis.sh
+cd /home/container/projects/auto-growth
+./scripts/analyze_pi_packages.sh
 ```
 
-### 使用系統啟動
-
-在 `startup.sh` 中添加：
+【查看報告】
 ```bash
-/home/container/projects/auto-growth/scripts/run_daily_analysis.sh
+ls -lh reports/
+cat reports/202604032010.md
 ```
 
-## 📞 支持
+【查看歷史】
+```bash
+cat .package_analysis_history
+```
 
-有任何問題或建議，請查看：
-- 項目日誌：`logs/package_analysis.log`
-- 分析歷史：`.package_analysis_history`
-- 生成的報告：`reports/`
+【重置歷史】
+```bash
+rm .package_analysis_history
+```
+
+## 💻 定時執行
+
+### Cron（每天 8:00 AM）
+```bash
+0 8 * * * cd /home/container/projects/auto-growth && ./scripts/analyze_pi_packages.sh
+```
+
+### 系統啟動時執行
+```bash
+# 在 startup.sh 中添加
+/home/container/projects/auto-growth/scripts/analyze_pi_packages.sh
+```
 
 ---
 
-**最後更新**: 2026-04-03
+**最後更新**: 2026-04-03  
+**版本**: 2.0 (每次分析 3 個新包)
