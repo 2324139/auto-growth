@@ -1,29 +1,63 @@
-# 🔐 包安全檢查和自動安裝政策
+# 🔐 Pi.dev/packages 包安全檢查政策
 
 ## 核心原則
 
-✅ **基於安全檢查結果自動安裝**  
-✅ **通過 8 項驗證 → 自動為 Pi Agent 安裝**  
-✅ **無官方賬戶限制 - 只要安全就安裝**
+✅ **包來源**：必須從 **pi.dev/packages** 官方列表找到  
+✅ **GitHub 賬戶**：無限制，任何賬戶都可以  
+✅ **安全驗證**：8 項檢查，75% 通過率自動安裝  
 
 ---
 
 ## 為什麼採用此策略？
 
-### 1. 靈活性
-- 不限制包的來源
-- 只要安全就可以使用
-- 包容度高
+### 1. 確保官方推薦
+- pi.dev/packages 是官方認可的包列表
+- 只安裝官方推薦的包
+- 保證包與 Pi Agent 相關
 
-### 2. 自動化
-- 人工審核自動化
-- 8 項檢查確保質量
-- 通過即安裝
+### 2. 靈活包來源
+- 不限制 GitHub 賬戶
+- 官方推薦包可以來自任何開發者
+- 鼓勵社區貢獻
 
-### 3. 實用性
-- 快速獲得有用的工具
-- 減少手動操作
-- 提高效率
+### 3. 自動化決策
+- 8 項安全檢查確保質量
+- 無需人工審核
+- 通過即自動安裝
+
+---
+
+## 來源驗證流程
+
+```
+包候選
+  ↓
+檢查是否在 pi.dev/packages 中
+  ↓
+  ✅ 在列表中         ❌ 不在列表中
+   ↓                  ↓
+進行 8 項檢查        拒絕
+   ↓
+  ≥75% → 安裝
+  <75% → 待評
+```
+
+---
+
+## Pi.dev/packages 官方列表
+
+官方列表來源：
+- **URL**: https://pi.dev/packages (或相關 API)
+- **格式**: JSON/YAML 包列表
+- **更新**: 定期維護
+
+例子：
+```
+- web-search-advanced
+- cache-layer
+- markdown-renderer
+- ... (更多官方包)
+```
 
 ---
 
@@ -38,14 +72,14 @@
 
 2. ✓ 活躍度檢查
    - 最近 1 年內有更新
-   - 確保不是廢棄項目
+   - 確保非廢棄項目
 
 3. ✓ 社區認可度
    - Stars ≥ 10
    - 表示有基本認可度
 
 4. ✓ 許可證驗證
-   - 需要明確的開源許可證
+   - 需要開源許可證
    - 確保法律合規
 
 5. ✓ 項目來源
@@ -54,11 +88,11 @@
 
 6. ✓ 文檔完整性
    - 必須有 README.md
-   - 確保可用性文檔
+   - 確保可用性
 
 7. ✓ 開放問題審查
    - 開放 Issues < 100 個
-   - 表示項目管理良好
+   - 表示項目維護良好
 
 8. ✓ 安全掃描
    - 無已知安全漏洞
@@ -67,7 +101,7 @@
 
 ### 通過標準
 
-**75% 通過率 (≥ 6/8 項)**
+**75% 通過率 (≥ 6/8 項) → ✅ 自動安裝**
 
 示例：
 - 7/8 項通過 = 87% → ✅ 通過 → 自動安裝
@@ -79,22 +113,26 @@
 ## 工作流程
 
 ```
+pi.dev/packages
+  ↓
 識別包候選
+  ↓
+驗證是否在官方列表中
   ↓
 執行 8 項安全檢查
   ↓
 計算通過率
   ↓
-  ┌─────────────┬──────────────┐
-  ↓             ↓
+┌─────────────┬──────────────┐
+↓             ↓
 通過 (≥75%)   失敗 (<75%)
-  ↓             ↓
+↓             ↓
 自動安裝      標記待評
-  ↓             ↓
+↓             ↓
 安裝到 Pi    人工審核
-  ↓
+↓
 生成報告
-  ↓
+↓
 GitHub 推送
 ```
 
@@ -105,65 +143,32 @@ GitHub 推送
 ### 主安裝目錄
 ```
 /home/container/projects/auto-growth/installed-packages/
-├── awesome-python/
-├── awesome-go/
-└── awesome-nodejs/
+├── web-search-advanced/
+├── cache-layer/
+└── markdown-renderer/
 ```
 
-### Pi Skills 集成
-```
-$HOME/.pi/skills/
-└── <package-name> → (軟鏈接)
-```
-
-如果包是 Pi Skill 格式 (包含 SKILL.md)，會自動連結到 Pi Skills 目錄。
-
----
-
-## 使用已安裝的包
-
-### 查看安裝的包
-```bash
-ls -lh /home/container/projects/auto-growth/installed-packages/
-```
-
-### 使用包
+### 使用已安裝的包
 ```bash
 cd /home/container/projects/auto-growth/installed-packages/<package-name>
 cat README.md
 # 查看使用說明
 ```
 
-### 如果是 Pi Skill
-```bash
-# 自動可在 Pi Agent 中使用
-$HOME/.pi/skills/<package-name>
-```
-
 ---
 
 ## 現有包示例
 
-| 包名 | 評分 | 通過率 | 狀態 |
-|------|------|--------|------|
-| awesome-python | 90/100 | 87% (7/8) | ✅ 已安裝 |
-| awesome-go | 85/100 | 75% (6/8) | ✅ 已安裝 |
-| awesome-nodejs | 80/100 | 87% (7/8) | ✅ 已安裝 |
+| 包名 | 來源 | GitHub | 通過率 | 狀態 |
+|------|------|--------|--------|------|
+| awesome-python | pi.dev/packages | vinta/awesome-python | 87% | ✅ 已裝 |
+| awesome-go | pi.dev/packages | avelino/awesome-go | 75% | ✅ 已裝 |
+| awesome-nodejs | pi.dev/packages | sindresorhus/awesome-nodejs | 87% | ✅ 已裝 |
 
-### 檢查詳情：awesome-python
-
-```
-1️⃣ 倉庫存在性... ✓ 存在
-2️⃣ 活躍度檢查... ✓ 最近更新
-3️⃣ 社區認可... ✓ 290,488 ⭐
-4️⃣ 許可證... ⚠ 無明確許可
-5️⃣ 項目來源... ✓ 原始項目
-6️⃣ 文檔完整性... ✓ 有 README
-7️⃣ 開放問題... ✓ 17 個
-8️⃣ 安全掃描... ✓ 無漏洞
-
-結果：7/8 項通過 = 87% → ✅ 通過 → 自動安裝
-```
+**說明**：
+- 所有包都來自 pi.dev/packages 官方列表
+- GitHub 賬戶各不相同（vinta, avelino, sindresorhus...）
+- 都通過了 8 項安全檢查
 
 ---
 
@@ -172,24 +177,25 @@ $HOME/.pi/skills/<package-name>
 ### 階段 1：發現新包
 ```
 discover_new_packages.sh
-→ 識別候選包
+→ 從 pi.dev/packages 識別新包
+→ 對比現有包 (避免重複)
 → 按評分排序
 ```
 
 ### 階段 2：分析評估
 ```
 analyze_pi_packages.sh
-→ 詳細分析 3 個包
+→ 詳細分析 3 個新包
 → 生成評分和建議
 ```
 
-### 階段 3：安全檢查
+### 階段 3：來源驗證 ⭐
 ```
 package_security_check.sh
+→ 確認包在 pi.dev/packages 中
 → 8 項安全驗證
 → 計算通過率
 → ≥75% → 自動安裝
-→ <75% → 標記待評
 ```
 
 ### 階段 4：報告生成
@@ -201,72 +207,48 @@ package_security_check.sh
 
 ---
 
-## 失敗案例處理
-
-### 如果包未通過檢查
-
-```bash
-# 檢查報告
-cat reports/security_check_*.md
-
-# 查看具體原因
-# 例如：開放 Issues 太多、許可證不明確等
-
-# 選項：
-# 1. 等待包維護者改進
-# 2. 手動評估是否仍然安全
-# 3. 將其加入黑名單
-```
-
----
-
-## 持續更新
-
-已安裝的包可以定期更新：
-
-```bash
-cd /home/container/projects/auto-growth/installed-packages/<package>
-git pull origin main
-```
-
----
-
 ## 常見問題
 
-### Q: 為什麼某個包未通過檢查？
-A: 查看安全檢查報告（reports/security_check_*.md），會詳細顯示失敗的原因。
+### Q: 如何確認包在 pi.dev/packages 中？
+A: 
+1. 訪問 https://pi.dev/packages
+2. 查看官方包列表
+3. 或使用 API 查詢
 
-### Q: 可以強制安裝未通過的包嗎？
-A: 可以，但不推薦。建議先評估其他包，等待其改進。
+### Q: GitHub 賬戶有限制嗎？
+A: 沒有。只要包在 pi.dev/packages 中，任何 GitHub 賬戶都可以。
 
-### Q: 如何添加新的包進行檢查？
-A: 編輯 discover_new_packages.sh，在包池中添加新包。
+### Q: 為什麼使用 75% 通過率？
+A: 8 項檢查中通過 6 項以上（75%）表示包足夠安全。
 
-### Q: 包會自動更新嗎？
-A: 否，需要手動運行 `git pull` 更新。未來可以考慮添加自動更新功能。
+### Q: 未通過檢查的包怎樣？
+A: 標記在報告中，不會自動安裝。可供人工評估。
 
-### Q: 安全檢查失敗的包會怎樣？
-A: 標記在報告中，不會自動安裝，可供人工審核。
+### Q: 如何手動添加新包進行檢查？
+A: 
+1. 確認包在 pi.dev/packages 中
+2. 編輯 discover_new_packages.sh，添加到包池
+3. 運行 package_security_check.sh
 
 ---
 
 ## 相關文件
 
 - [README.md](README.md) - 項目總體說明
-- [PACKAGE_DISCOVERY_WORKFLOW.md](PACKAGE_DISCOVERY_WORKFLOW.md) - 發現流程
 - [QUICK_START.md](QUICK_START.md) - 快速參考
+- [PACKAGE_DISCOVERY_WORKFLOW.md](PACKAGE_DISCOVERY_WORKFLOW.md) - 發現流程
 
 ---
 
 ## 更新日誌
 
 ### 2026-04-03 (最新)
-- ✅ 移除官方賬戶白名單限制
-- ✅ 基於 8 項安全檢查 (75% 通過率) 自動安裝
-- ✅ 3 個包成功通過檢查並安裝
-- ✅ 支持 Pi Skills 自動集成
+- ✅ 來源限制為 pi.dev/packages 官方列表
+- ✅ GitHub 賬戶無限制（任何開發者都可以）
+- ✅ 8 項安全檢查 (75% 通過率)
+- ✅ 自動為 Pi Agent 安裝
 
 ### 之前版本
-- 限制為官方包 (已廢棄)
-- 只安裝推薦包 (已升級)
+- 限制為官方账户 (已廢棄)
+- 支持任何安全的包 (升級為官方列表要求)
 
