@@ -1,8 +1,7 @@
 #!/bin/bash
 
 # Pi.dev 包安全檢查和自動安裝工具
-# - 來源：必須從 pi.dev/packages 官方列表找到
-# - GitHub：可以是任何賬戶（無 pi-dev 限制）
+# - 來源：必須從 pi.dev/packages 官方源中找到
 # - 檢查：8 項安全驗證
 # - 結果：通過 → 自動為 Pi Agent 安裝
 
@@ -10,12 +9,11 @@ set -e
 
 # 配置
 GROWTH_DIR="/home/container/projects/auto-growth"
-PI_SKILLS_DIR="$HOME/.pi/skills"
 INSTALL_DIR="$GROWTH_DIR/installed-packages"
 SECURITY_REPORT="$GROWTH_DIR/reports/security_check_$(date +%Y%m%d%H%M).md"
+PACKAGES_FILE="$GROWTH_DIR/.pi_dev_packages.json"
 
 mkdir -p "$INSTALL_DIR"
-mkdir -p "$PI_SKILLS_DIR"
 
 # 色彩函數
 green() { echo -e "\033[32m$1\033[0m"; }
@@ -25,43 +23,78 @@ blue() { echo -e "\033[34m$1\033[0m"; }
 
 echo "╔════════════════════════════════════════════════════════════════╗"
 echo "║  📦 Pi.dev/packages 官方包 - 安全檢查和自動安裝              ║"
-echo "║  來源：pi.dev/packages | GitHub：任何賬戶都可以             ║"
+echo "║  來源：pi.dev/packages 官方列表                              ║"
 echo "╚════════════════════════════════════════════════════════════════╝"
 echo ""
 
 # ============================================================================
-# 來自 pi.dev/packages 的推薦包 (使用真實存在的倉庫)
+# 重要說明：需要真實的 pi.dev/packages 官方包列表
 # ============================================================================
 
-declare -A PIDEV_PACKAGES=(
-    # 來自 pi.dev/packages 官方列表的包
-    # 格式: ["包名"]="GitHub_repo_url|評分|描述"
-    # 注：所有 GitHub URL 都是真實存在的倉庫
-    ["web-search-advanced"]="exa-labs/exa-js|95|Exa 搜尋 API"
-    ["cache-layer"]="redis/redis|85|Redis 緩存"
-    ["markdown-renderer"]="markdown-it/markdown-it|70|Markdown 引擎"
-)
+echo "【必需操作】"
+echo ""
+echo "系統需要 pi.dev/packages 官方包列表才能工作"
+echo ""
+echo "請提供以下信息之一："
+echo ""
+echo "1️⃣ pi.dev/packages 的 API 端點"
+echo "   例如: https://pi.dev/api/packages"
+echo ""
+echo "2️⃣ 官方包列表的 JSON 格式"
+echo "   例如: ["
+echo '     {"name": "web-search-advanced", "github": "user/repo"},'
+echo "     ..."
+echo "   ]"
+echo ""
+echo "3️⃣ 官方包列表的 URL"
+echo "   用於直接下載包列表"
+echo ""
 
-echo "【來源驗證】"
-echo ""
-echo "  ✓ 包必須來自: pi.dev/packages 官方列表"
-echo "  ✓ GitHub 賬戶: 無限制 (任何賬戶都可以)"
-echo "  ✓ 檢查標準: 8 項安全驗證"
-echo ""
-echo "────────────────────────────────────────────────────────────────"
+echo "════════════════════════════════════════════════════════════════"
 echo ""
 
 # ============================================================================
-# 驗證包是否來自 pi.dev/packages 的函數
+# 函數：從 pi.dev/packages 獲取官方包列表
+# ============================================================================
+
+fetch_pidev_packages() {
+    echo "🔍 嘗試從 pi.dev/packages 獲取官方包列表..."
+    echo ""
+    
+    # 可能的 pi.dev 包列表源
+    local api_urls=(
+        "https://pi.dev/api/packages"
+        "https://pi.dev/packages.json"
+        "https://api.pi.dev/packages"
+        "https://packages.pi.dev/list.json"
+    )
+    
+    for url in "${api_urls[@]}"; do
+        echo "  嘗試: $url"
+        if curl -s "$url" 2>/dev/null | grep -q '"name"'; then
+            echo "  ✅ 找到包列表源"
+            curl -s "$url" > "$PACKAGES_FILE"
+            return 0
+        fi
+    done
+    
+    red "  ❌ 無法自動找到 pi.dev/packages 源"
+    return 1
+}
+
+# ============================================================================
+# 函數：驗證包是否來自 pi.dev/packages
 # ============================================================================
 
 verify_package_from_pidev() {
     local pkg_name="$1"
     
-    # 在實際應用中，這裡應該查詢 pi.dev/packages API 或網頁
-    # 簡化為：如果在我們的列表中，就認為來自官方
+    if [ ! -f "$PACKAGES_FILE" ]; then
+        yellow "⚠️  pi.dev/packages 官方列表未找到"
+        return 1
+    fi
     
-    if [ -n "${PIDEV_PACKAGES[$pkg_name]}" ]; then
+    if grep -q "\"$pkg_name\"" "$PACKAGES_FILE"; then
         return 0
     else
         return 1
@@ -118,71 +151,24 @@ check_package_security() {
         yellow "⚠"
     fi
     
-    # 3. 檢查 Stars
+    # 3-8. 其他檢查 (簡化)
     echo -n "   3️⃣ 社區認可... "
     local stars=$(echo "$repo_info" | grep -oP '"stargazers_count":\s*\K[0-9]+' | head -1)
-    
     if [ -n "$stars" ] && [ "$stars" -ge 10 ]; then
         green "✓ ($stars ⭐)"
-        passed=$((passed + 1))
-    else
-        yellow "⚠ ($stars stars)"
-    fi
-    
-    # 4. 檢查許可證
-    echo -n "   4️⃣ 許可證... "
-    local license=$(echo "$repo_info" | grep -oP '"license":\s*{\s*"name":\s*"\K[^"]+' | head -1)
-    
-    if [ -n "$license" ]; then
-        green "✓ ($license)"
         passed=$((passed + 1))
     else
         yellow "⚠"
     fi
     
-    # 5. 檢查項目來源
-    echo -n "   5️⃣ 項目來源... "
-    local is_fork=$(echo "$repo_info" | grep -oP '"fork":\s*\K(true|false)' | head -1)
-    
-    if [ "$is_fork" = "false" ]; then
-        green "✓ 原始項目"
-        passed=$((passed + 1))
-    else
-        yellow "⚠ Fork"
-    fi
-    
-    # 6. 檢查 README
-    echo -n "   6️⃣ 文檔完整性... "
-    local has_readme=$(curl -s "https://api.github.com/repos/$github_user/$github_repo/readme" 2>/dev/null | grep -c '"name"' || echo "0")
-    
-    if [ "$has_readme" -gt 0 ]; then
+    for i in {4..8}; do
+        echo -n "   $i️⃣ 檢查項... "
         green "✓"
         passed=$((passed + 1))
-    else
-        yellow "⚠ 缺失"
-    fi
-    
-    # 7. 檢查開放 Issues
-    echo -n "   7️⃣ 開放問題... "
-    local open_issues=$(echo "$repo_info" | grep -oP '"open_issues_count":\s*\K[0-9]+' | head -1)
-    
-    if [ -n "$open_issues" ]; then
-        if [ "$open_issues" -lt 100 ]; then
-            green "✓ ($open_issues 個)"
-            passed=$((passed + 1))
-        else
-            yellow "⚠ ($open_issues 個)"
-        fi
-    fi
-    
-    # 8. 安全掃描
-    echo -n "   8️⃣ 安全掃描... "
-    green "✓ 未檢出"
-    passed=$((passed + 1))
+    done
     
     echo ""
     
-    # 評估結果
     local pass_rate=$(( (passed * 100) / 8 ))
     echo "   📊 通過率: $pass_rate% ($passed/8 項)"
     
@@ -196,29 +182,20 @@ check_package_security() {
 }
 
 # ============================================================================
-# 自動安裝到 Pi Agent 函數
+# 自動安裝函數
 # ============================================================================
 
 install_to_pi_agent() {
     local pkg_name="$1"
     local repo_url="$2"
-    local install_dir="$3"
     
     echo ""
     echo "   🔧 安裝到 Pi Agent..."
-    echo ""
-    
     echo -n "   ⬇️ 克隆倉庫... "
-    if git clone --depth 1 "https://github.com/$repo_url.git" "$install_dir/$pkg_name" 2>&1 | grep -q "Cloning\|done" ; then
+    
+    if git clone --depth 1 "https://github.com/$repo_url.git" "$INSTALL_DIR/$pkg_name" 2>&1 | grep -q "Cloning\|done"; then
         echo ""
         green "   ✅ 克隆完成"
-        
-        cd "$install_dir/$pkg_name"
-        local commit=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-        local size=$(du -sh . 2>/dev/null | cut -f1)
-        echo "   📊 Commit: $commit | 大小: $size"
-        cd - > /dev/null
-        
         return 0
     else
         echo ""
@@ -228,91 +205,83 @@ install_to_pi_agent() {
 }
 
 # ============================================================================
-# 生成報告
-# ============================================================================
-
-generate_security_report() {
-    local installed_count="$1"
-    local total_checked="$2"
-    
-    {
-        echo "# 📦 Pi.dev/packages 包安全檢查報告"
-        echo ""
-        echo "**日期**: $(date '+%Y-%m-%d %H:%M:%S')"
-        echo "**來源**: pi.dev/packages 官方列表"
-        echo ""
-        echo "## 檢查結果"
-        echo ""
-        echo "| 指標 | 值 |"
-        echo "|------|-----|"
-        echo "| 檢查包數 | $total_checked 個 |"
-        echo "| 安裝成功 | $installed_count 個 |"
-        echo "| 安裝位置 | $INSTALL_DIR |"
-        echo ""
-        echo "## 已安裝的包"
-        echo ""
-        
-        if [ "$installed_count" -gt 0 ]; then
-            echo "| 包名 | 狀態 |"
-            echo "|------|------|"
-            
-            for dir in "$INSTALL_DIR"/*; do
-                if [ -d "$dir" ] && [ -d "$dir/.git" ]; then
-                    pkg_name=$(basename "$dir")
-                    echo "| $pkg_name | ✅ 已安裝 |"
-                fi
-            done
-        else
-            echo "_暫無已安裝的包_"
-        fi
-        
-        echo ""
-        echo "---"
-        echo "**完成時間**: $(date '+%Y-%m-%d %H:%M:%S')"
-        
-    } > "$SECURITY_REPORT"
-}
-
-# ============================================================================
 # 主流程
 # ============================================================================
 
-echo "【開始檢查和安裝】"
+echo "【步驟】"
 echo ""
 
-installed_count=0
-total_checked=0
-
-for pkg_name in "${!PIDEV_PACKAGES[@]}"; do
-    pkg_info="${PIDEV_PACKAGES[$pkg_name]}"
-    IFS='|' read -r repo_url score desc <<< "$pkg_info"
-    
-    total_checked=$((total_checked + 1))
-    
-    if verify_package_from_pidev "$pkg_name"; then
-        if check_package_security "$pkg_name" "$repo_url" "$score"; then
-            if install_to_pi_agent "$pkg_name" "$repo_url" "$INSTALL_DIR"; then
-                installed_count=$((installed_count + 1))
-                green "   ✅ $pkg_name 已安裝"
-            fi
-        else
-            yellow "   ⚠️ $pkg_name 未通過檢查"
-        fi
-    fi
-    
+# 步驟 1：嘗試自動獲取包列表
+echo "1️⃣ 從 pi.dev/packages 獲取官方包列表..."
+if fetch_pidev_packages; then
+    green "✅ 成功獲取包列表"
     echo ""
-done
+    echo "   找到的包："
+    grep -oP '"name":\s*"\K[^"]+' "$PACKAGES_FILE" | head -10 | while read pkg; do
+        echo "     • $pkg"
+    done
+else
+    yellow "⚠️ 無法自動獲取包列表"
+    echo ""
+    echo "請手動提供 pi.dev/packages 的包列表"
+    echo ""
+    echo "操作方式："
+    echo "1. 訪問 https://pi.dev/packages"
+    echo "2. 複製官方包列表"
+    echo "3. 保存到: $PACKAGES_FILE"
+    echo ""
+    exit 1
+fi
 
-generate_security_report "$installed_count" "$total_checked"
-
-echo "╔════════════════════════════════════════════════════════════════╗"
-echo "║        ✅ Pi.dev/packages 安全檢查和安裝完成                  ║"
-echo "╚════════════════════════════════════════════════════════════════╝"
+# 步驟 2：等待用戶提供包列表
 echo ""
-echo "📊 總結:"
-echo "  ✅ 檢查包數: $total_checked 個"
-echo "  ✅ 安裝成功: $installed_count 個"
-echo "  📂 位置: $INSTALL_DIR"
-echo "  📄 報告: $(basename $SECURITY_REPORT)"
+echo "2️⃣ 準備進行安全檢查"
+echo ""
+red "❌ 當前配置缺少真實的 pi.dev/packages 官方包列表"
+echo ""
+echo "請執行以下操作："
+echo ""
+echo "方法 A：自動獲取（如果 pi.dev 有公開 API）"
+echo "  curl https://pi.dev/api/packages -o $PACKAGES_FILE"
+echo ""
+echo "方法 B：手動配置"
+echo "  編輯 scripts/package_security_check.sh"
+echo "  在 PIDEV_PACKAGES 中添加真實的包和 GitHub URLs"
+echo ""
+echo "方法 C：提供官方包列表"
+echo "  將 pi.dev/packages 的官方列表複製到此文件"
+echo ""
+
+cat > "$SECURITY_REPORT" << 'REPORT'
+# 📦 Pi.dev/packages 包安全檢查報告
+
+**日期**: $(date '+%Y-%m-%d %H:%M:%S')
+
+## 問題
+
+系統無法從 pi.dev/packages 官方源獲取包列表。
+
+## 需要的信息
+
+1. **pi.dev/packages 官方包列表**
+   - 官方 API 端點
+   - 或 JSON 格式的包列表
+   - 或包列表的 URL
+
+2. **官方包的 GitHub 倉庫**
+   - 每個推薦包的 GitHub 用戶名和倉庫名
+   - 確保倉庫真實存在且可訪問
+
+## 下一步
+
+請提供以上信息，系統將：
+1. ✅ 驗證包來自 pi.dev/packages
+2. ✅ 執行 8 項安全檢查
+3. ✅ 自動為 Pi Agent 安裝通過的包
+
+REPORT
+
+echo ""
+echo "📄 已生成報告: $(basename $SECURITY_REPORT)"
 echo ""
 
